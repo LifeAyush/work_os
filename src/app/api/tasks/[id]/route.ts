@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { requireSessionUser } from "@/lib/auth/api-session";
 import type { PrimaryTag, TaskRow, TaskStatus } from "@/lib/tasks/constants";
 import {
   attachmentsFromTextarea,
@@ -28,6 +29,10 @@ function rowFromDb(r: Record<string, unknown>): TaskRow {
 type Ctx = { params: Promise<{ id: string }> };
 
 export async function PATCH(request: Request, ctx: Ctx) {
+  const auth = await requireSessionUser();
+  if (!auth.ok) return auth.response;
+  const { userId } = auth;
+
   const { id } = await ctx.params;
   if (!id) {
     return NextResponse.json({ error: "missing id" }, { status: 400 });
@@ -81,8 +86,9 @@ export async function PATCH(request: Request, ctx: Ctx) {
       .from("tasks")
       .update(patch)
       .eq("id", id)
+      .eq("user_id", userId)
       .select("*")
-      .single();
+      .maybeSingle();
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
@@ -101,6 +107,10 @@ export async function PATCH(request: Request, ctx: Ctx) {
 }
 
 export async function DELETE(_request: Request, ctx: Ctx) {
+  const auth = await requireSessionUser();
+  if (!auth.ok) return auth.response;
+  const { userId } = auth;
+
   const { id } = await ctx.params;
   if (!id) {
     return NextResponse.json({ error: "missing id" }, { status: 400 });
@@ -108,9 +118,17 @@ export async function DELETE(_request: Request, ctx: Ctx) {
 
   try {
     const supabase = createAdminClient();
-    const { error } = await supabase.from("tasks").delete().eq("id", id);
+    const { data, error } = await supabase
+      .from("tasks")
+      .delete()
+      .eq("id", id)
+      .eq("user_id", userId)
+      .select("id");
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+    if (!data?.length) {
+      return NextResponse.json({ error: "not found" }, { status: 404 });
     }
     return NextResponse.json({ ok: true });
   } catch (e) {

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { requireSessionUser } from "@/lib/auth/api-session";
 import type { PrimaryTag, TaskRow, TaskStatus } from "@/lib/tasks/constants";
 import { sortTasks } from "@/lib/tasks/sort";
 import {
@@ -27,12 +28,16 @@ function rowFromDb(r: Record<string, unknown>): TaskRow {
 }
 
 export async function GET(request: Request) {
+  const auth = await requireSessionUser();
+  if (!auth.ok) return auth.response;
+  const { userId } = auth;
+
   const { searchParams } = new URL(request.url);
   const tag = searchParams.get("tag") ?? "all";
 
   try {
     const supabase = createAdminClient();
-    let q = supabase.from("tasks").select("*");
+    let q = supabase.from("tasks").select("*").eq("user_id", userId);
     if (tag !== "all") {
       q = q.eq("primary_tag", tag);
     }
@@ -54,6 +59,10 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const auth = await requireSessionUser();
+  if (!auth.ok) return auth.response;
+  const { userId } = auth;
+
   try {
     const body = (await request.json()) as Record<string, unknown>;
     const title = typeof body.title === "string" ? body.title.trim() : "";
@@ -100,6 +109,7 @@ export async function POST(request: Request) {
     const { data, error } = await supabase
       .from("tasks")
       .insert({
+        user_id: userId,
         title,
         status,
         priority,

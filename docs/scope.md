@@ -105,7 +105,7 @@ only the things listed above are required nothing else to be built
 Rough phases (edit to match your P0 list):
 
 - **M1:** Basic Ui and structure for sidebar and the 2 tabs tracker and tasks
-- **M2:** abikity to CRUD tasks and cahnge status and all
+- **M2:** abikity to CRUD tasks and cahnge status and all + status wise view
 - **M3:** tracker dashboard for analysing a weeks work, but can make this dynamic based on time like can track week or day or month etc
 
 ---

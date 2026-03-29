@@ -16,6 +16,7 @@ Next.js app (App Router) with [Supabase](https://supabase.com) Postgres. This re
    - **service_role** → `SUPABASE_SERVICE_ROLE_KEY` (keep secret; server-only)
 3. In **SQL Editor**, run the script in [`supabase/tasks.sql`](supabase/tasks.sql) to create the `tasks` table and enable RLS (no anon policies yet).
 4. Run [`supabase/m1_schema.sql`](supabase/m1_schema.sql) in the **SQL Editor** to add task fields (tags, priority, due date, etc.) used by the dashboard.
+5. Run [`supabase/m2_tasks_user_id.sql`](supabase/m2_tasks_user_id.sql) so every task has a mandatory `user_id` → `auth.users`. **This deletes all existing tasks** in the table, then sets `user_id` to `NOT NULL`.
 
 ## 2. Environment variables
 
@@ -23,9 +24,9 @@ Next.js app (App Router) with [Supabase](https://supabase.com) Postgres. This re
 cp .env.example .env.local
 ```
 
-Fill in the three values in `.env.local`. Optionally set `NEXT_PUBLIC_DISPLAY_NAME` for the “Welcome back” line on the dashboard. Never commit real keys; `.env.local` is gitignored.
+Fill in the three values in `.env.local`. Optionally set `NEXT_PUBLIC_DISPLAY_NAME` as a fallback for the “Welcome back” line, and `ALLOWED_GOOGLE_EMAIL` (comma-separated) to restrict the task API to specific Google accounts. Never commit real keys; `.env.local` is gitignored.
 
-**Security:** Task APIs use the Supabase **service role** on the server only. Until you add authentication (e.g. Google via Supabase Auth), a deployed site would allow anyone who can reach your origin to call those routes—treat production auth as a follow-up.
+**Security:** The app uses **Google sign-in via Supabase Auth**. Task API routes verify the session, then load and mutate tasks **scoped to that user’s `user_id`** via the **service role**. Omit `ALLOWED_GOOGLE_EMAIL` only if any signed-in Google user may use the app.
 
 For **Vercel**: in the project → **Settings → Environment Variables**, add the same three names for **Production** and **Preview** (and Development if you use `vercel dev` with pulled env).
 

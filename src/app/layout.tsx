@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+
+import { AuthProfileSync } from "@/components/auth/auth-profile-sync";
+
 import "./globals.css";
 
 const geistSans = Geist({
@@ -13,7 +16,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "work_os",
+  title: "Work OS",
   description: "Personal task workspace",
 };
 
@@ -32,6 +35,7 @@ export default function RootLayout({
         className="flex min-h-dvh flex-col bg-black text-white antialiased"
         suppressHydrationWarning
       >
+        <AuthProfileSync />
         {children}
       </body>
     </html>

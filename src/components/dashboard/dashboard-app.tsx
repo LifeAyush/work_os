@@ -11,12 +11,20 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import {
+  clearStoredProfile,
+  displayLabel,
+  profileFromUser,
+  readStoredProfile,
+} from "@/lib/auth/profile-storage";
+import { createClient } from "@/lib/supabase/client";
 import type { PrimaryTag, TaskRow } from "@/lib/tasks/constants";
 import { PRIMARY_TAGS } from "@/lib/tasks/constants";
 import { sortTasks } from "@/lib/tasks/sort";
 
 import { CreateTaskDialog } from "./create-task-dialog";
 import { DeleteTaskDialog } from "./delete-task-dialog";
+import { SignOutDialog } from "./sign-out-dialog";
 import { TaskCard } from "./task-card";
 
 type Tab = "tasks" | "tracker";
@@ -39,9 +47,13 @@ export function DashboardApp() {
   const [createOpen, setCreateOpen] = useState(false);
   const [taskToDelete, setTaskToDelete] = useState<TaskRow | null>(null);
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
+  const [signOutOpen, setSignOutOpen] = useState(false);
 
-  const displayName =
+  const envFallback =
     process.env.NEXT_PUBLIC_DISPLAY_NAME?.trim() || "there";
+  const [displayName, setDisplayName] = useState(envFallback);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
   const loadTasks = useCallback(async () => {
     setLoadError(null);
@@ -69,6 +81,44 @@ export function DashboardApp() {
   useEffect(() => {
     void loadTasks();
   }, [loadTasks]);
+
+  useEffect(() => {
+    const stored = readStoredProfile();
+    if (stored) {
+      setDisplayName(displayLabel(stored, envFallback));
+      setAvatarUrl(stored.avatar_url);
+    }
+
+    const supabase = createClient();
+    void supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) {
+        const p = profileFromUser(user);
+        setDisplayName(displayLabel(p, envFallback));
+        setAvatarUrl(p.avatar_url);
+      }
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      const u = session?.user;
+      if (u) {
+        const p = profileFromUser(u);
+        setDisplayName(displayLabel(p, envFallback));
+        setAvatarUrl(p.avatar_url);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [envFallback]);
+
+  async function confirmSignOut() {
+    setSigningOut(true);
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    clearStoredProfile();
+    window.location.href = "/login";
+  }
 
   const counts = useMemo(() => {
     const c: Record<PrimaryTag | "all", number> = {
@@ -182,9 +232,10 @@ export function DashboardApp() {
         </nav>
         <button
           type="button"
-          className={`${navBtn} mt-auto opacity-40`}
-          disabled
-          title="Google sign-in (coming later)"
+          className={`${navBtn} mt-auto ${signingOut ? "opacity-40" : ""}`}
+          disabled={signingOut}
+          onClick={() => setSignOutOpen(true)}
+          title="Sign out"
           aria-label="Sign out"
         >
           <LogOut className="size-5" />
@@ -237,7 +288,18 @@ export function DashboardApp() {
               className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-neutral-700 bg-neutral-900 text-sm font-medium text-white"
               aria-hidden
             >
-              {displayName.slice(0, 1).toUpperCase()}
+              {avatarUrl ? (
+                // Google (and other) avatar hosts vary; avoid next/image allowlist churn.
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={avatarUrl}
+                  alt=""
+                  className="size-full object-cover"
+                  referrerPolicy="no-referrer"
+                />
+              ) : (
+                displayName.slice(0, 1).toUpperCase()
+              )}
             </div>
           </div>
           <div className="flex min-h-[3.25rem] flex-wrap items-end justify-between gap-4">
@@ -364,6 +426,12 @@ export function DashboardApp() {
         deleting={deleteSubmitting}
         onClose={() => !deleteSubmitting && setTaskToDelete(null)}
         onConfirm={() => void confirmDelete()}
+      />
+      <SignOutDialog
+        open={signOutOpen}
+        signingOut={signingOut}
+        onClose={() => !signingOut && setSignOutOpen(false)}
+        onConfirm={() => void confirmSignOut()}
       />
     </div>
   );
