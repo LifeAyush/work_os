@@ -1,8 +1,9 @@
 @import "tailwindcss";
+@import "react-day-picker/style.css";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #000000;
+  --foreground: #ffffff;
 }
 
 @theme inline {
@@ -12,15 +13,89 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+}
+
+/* react-day-picker — dark popover calendar */
+.work-os-calendar.rdp-root {
+  --rdp-accent-color: #fafafa;
+  --rdp-accent-background-color: rgba(255, 255, 255, 0.12);
+  --rdp-day_button-border-radius: 0.5rem;
+  color: #e5e5e5;
+  font-size: 0.875rem;
+}
+
+.work-os-calendar .rdp-day_button {
+  color: #fafafa;
+}
+
+.work-os-calendar .rdp-day_button:hover:not([disabled]) {
+  background-color: rgb(38 38 38);
+}
+
+.work-os-calendar .rdp-selected .rdp-day_button {
+  background-color: #fafafa !important;
+  color: #0a0a0a !important;
+  border-color: transparent !important;
+  font-weight: 600;
+}
+
+.work-os-calendar .rdp-today:not(.rdp-selected) .rdp-day_button {
+  color: #fafafa;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.work-os-calendar .rdp-caption_label {
+  color: #fafafa;
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+/* Month/year dropdowns: invisible native select sits over styled root */
+.work-os-calendar .rdp-dropdown_root {
+  position: relative;
+  margin: 0 0.125rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgb(64 64 64);
+  background-color: #0a0a0a;
+  padding: 0.35rem 1.75rem 0.35rem 0.6rem;
+  min-height: 2rem;
+  align-items: center;
+}
+
+.work-os-calendar .rdp-dropdown_root .rdp-chevron {
+  position: absolute;
+  right: 0.45rem;
+  fill: #a3a3a3;
+}
+
+.work-os-calendar .rdp-button_previous,
+.work-os-calendar .rdp-button_next {
+  border-radius: 0.5rem;
+  border: 1px solid rgb(64 64 64);
+  background-color: #171717;
+  color: #fafafa;
+  width: 2.25rem;
+  height: 2.25rem;
+}
+
+.work-os-calendar .rdp-button_previous:hover,
+.work-os-calendar .rdp-button_next:hover {
+  background-color: #262626;
+}
+
+.work-os-calendar .rdp-weekday {
+  color: #737373;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.work-os-calendar .rdp-outside .rdp-day_button {
+  opacity: 0.45;
 }

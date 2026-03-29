@@ -15,6 +15,7 @@ Next.js app (App Router) with [Supabase](https://supabase.com) Postgres. This re
    - **anon public** → `NEXT_PUBLIC_SUPABASE_ANON_KEY`
    - **service_role** → `SUPABASE_SERVICE_ROLE_KEY` (keep secret; server-only)
 3. In **SQL Editor**, run the script in [`supabase/tasks.sql`](supabase/tasks.sql) to create the `tasks` table and enable RLS (no anon policies yet).
+4. Run [`supabase/m1_schema.sql`](supabase/m1_schema.sql) in the **SQL Editor** to add task fields (tags, priority, due date, etc.) used by the dashboard.
 
 ## 2. Environment variables
 
@@ -22,7 +23,9 @@ Next.js app (App Router) with [Supabase](https://supabase.com) Postgres. This re
 cp .env.example .env.local
 ```
 
-Fill in the three values in `.env.local`. Never commit real keys; `.env.local` is gitignored.
+Fill in the three values in `.env.local`. Optionally set `NEXT_PUBLIC_DISPLAY_NAME` for the “Welcome back” line on the dashboard. Never commit real keys; `.env.local` is gitignored.
+
+**Security:** Task APIs use the Supabase **service role** on the server only. Until you add authentication (e.g. Google via Supabase Auth), a deployed site would allow anyone who can reach your origin to call those routes—treat production auth as a follow-up.
 
 For **Vercel**: in the project → **Settings → Environment Variables**, add the same three names for **Production** and **Preview** (and Development if you use `vercel dev` with pulled env).
 
@@ -33,7 +36,7 @@ npm install
 npm run dev
 ```
 
-- App: [http://localhost:3000](http://localhost:3000)
+- App: [http://localhost:3000](http://localhost:3000) — dark task dashboard (after `m1_schema.sql`).
 - DB health check: [http://localhost:3000/api/health/db](http://localhost:3000/api/health/db) — expects `{ "ok": true }` when Supabase is configured and `tasks` exists.
 
 ## 4. Deploy on Vercel
@@ -51,7 +54,7 @@ npm run dev
 | [`src/lib/supabase/server.ts`](src/lib/supabase/server.ts) | Server Components, Server Actions (`anon` + cookies) |
 | [`src/lib/supabase/admin.ts`](src/lib/supabase/admin.ts) | Route Handlers / server-only code (`service_role`; bypasses RLS) |
 
-[`src/middleware.ts`](src/middleware.ts) refreshes the auth session via [`@supabase/ssr`](https://supabase.com/docs/guides/auth/server-side/nextjs) so you can add Supabase Auth later without restructuring.
+[`src/proxy.ts`](src/proxy.ts) (Next.js 16 “proxy” convention, formerly middleware) refreshes the auth session via [`@supabase/ssr`](https://supabase.com/docs/guides/auth/server-side/nextjs) so you can add Supabase Auth later without restructuring.
 
 ## Learn More
 
