@@ -58,8 +58,22 @@ export function startOfTodayLocal(): Date {
   return d;
 }
 
+const YMD_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Calendar `YYYY-MM-DD` (basic format check). */
+export function isValidYMD(ymd: string): boolean {
+  return YMD_RE.test(ymd);
+}
+
+/** Extract `YYYY-MM-DD` from a DB `due_at` ISO string for date inputs. */
+export function dueAtIsoToYMD(iso: string | null): string {
+  if (!iso) return "";
+  const d = iso.trim().slice(0, 10);
+  return isValidYMD(d) ? d : "";
+}
+
 /** `YYYY-MM-DD` on or after today's local date. */
 export function isOnOrAfterTodayYMD(ymd: string): boolean {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd)) return false;
+  if (!YMD_RE.test(ymd)) return false;
   return ymd >= todayYMDLocal();
 }

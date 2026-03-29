@@ -3,6 +3,7 @@
 import {
   BarChart2,
   CheckSquare,
+  Columns3,
   LayoutGrid,
   List,
   LogOut,
@@ -24,8 +25,10 @@ import { sortTasks } from "@/lib/tasks/sort";
 
 import { CreateTaskDialog } from "./create-task-dialog";
 import { DeleteTaskDialog } from "./delete-task-dialog";
+import { EditTaskDialog } from "./edit-task-dialog";
 import { SignOutDialog } from "./sign-out-dialog";
 import { TaskCard } from "./task-card";
+import { TasksBoardView } from "./tasks-board-view";
 
 type Tab = "tasks" | "tracker";
 
@@ -39,13 +42,14 @@ const sidebarLabels: Record<PrimaryTag | "all", string> = {
 export function DashboardApp() {
   const [tab, setTab] = useState<Tab>("tasks");
   const [filterTag, setFilterTag] = useState<PrimaryTag | "all">("all");
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [viewMode, setViewMode] = useState<"grid" | "list" | "board">("grid");
   const [search, setSearch] = useState("");
   const [tasks, setTasks] = useState<TaskRow[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
   const [taskToDelete, setTaskToDelete] = useState<TaskRow | null>(null);
+  const [taskToEdit, setTaskToEdit] = useState<TaskRow | null>(null);
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const [signOutOpen, setSignOutOpen] = useState(false);
@@ -147,7 +151,7 @@ export function DashboardApp() {
   async function handleStatusChange(id: string, status: TaskRow["status"]) {
     const prev = tasks;
     setTasks((rows) =>
-      rows.map((r) => (r.id === id ? { ...r, status } : r)),
+      sortTasks(rows.map((r) => (r.id === id ? { ...r, status } : r))),
     );
     try {
       const res = await fetch(`/api/tasks/${id}`, {
@@ -168,6 +172,10 @@ export function DashboardApp() {
 
   function requestDelete(task: TaskRow) {
     setTaskToDelete(task);
+  }
+
+  function requestEdit(task: TaskRow) {
+    setTaskToEdit(task);
   }
 
   async function confirmDelete() {
@@ -332,6 +340,15 @@ export function DashboardApp() {
               >
                 <List className="size-5" />
               </button>
+              <button
+                type="button"
+                onClick={() => setViewMode("board")}
+                className={`rounded-lg p-2 ${viewMode === "board" ? "bg-neutral-800 text-white" : "text-neutral-500 hover:text-white"}`}
+                aria-label="Board view"
+                tabIndex={tab === "tasks" ? 0 : -1}
+              >
+                <Columns3 className="size-5" />
+              </button>
             </div>
           </div>
         </header>
@@ -361,8 +378,12 @@ export function DashboardApp() {
               <p className="font-medium">Could not load tasks</p>
               <p className="mt-1 text-amber-200/80">{loadError}</p>
               <p className="mt-2 text-xs text-amber-200/60">
-                Run <code className="rounded bg-black/30 px-1">supabase/m1_schema.sql</code> in
-                the Supabase SQL editor if you have not migrated yet.
+                In the Supabase SQL editor, run migrations in order:{" "}
+                <code className="rounded bg-black/30 px-1">supabase/m1_schema.sql</code>, then{" "}
+                <code className="rounded bg-black/30 px-1">supabase/m2_tasks_user_id.sql</code>{" "}
+                (adds <code className="rounded bg-black/30 px-1">user_id</code> and clears existing
+                tasks). Use <code className="rounded bg-black/30 px-1">supabase/tasks.sql</code>{" "}
+                first on a fresh project.
               </p>
             </div>
           ) : null}
@@ -388,6 +409,13 @@ export function DashboardApp() {
                 Create a task
               </button>
             </div>
+          ) : viewMode === "board" ? (
+            <TasksBoardView
+              tasks={filteredTasks}
+              onStatusChange={handleStatusChange}
+              onEditRequest={requestEdit}
+              onDeleteRequest={requestDelete}
+            />
           ) : viewMode === "grid" ? (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
               {filteredTasks.map((task) => (
@@ -397,6 +425,7 @@ export function DashboardApp() {
                   layout="grid"
                   onStatusChange={handleStatusChange}
                   onDeleteRequest={requestDelete}
+                  onEditRequest={requestEdit}
                 />
               ))}
             </div>
@@ -409,6 +438,7 @@ export function DashboardApp() {
                   layout="list"
                   onStatusChange={handleStatusChange}
                   onDeleteRequest={requestDelete}
+                  onEditRequest={requestEdit}
                 />
               ))}
             </div>
@@ -420,6 +450,17 @@ export function DashboardApp() {
         open={createOpen}
         onClose={() => setCreateOpen(false)}
         onCreated={() => void loadTasks()}
+      />
+      <EditTaskDialog
+        task={taskToEdit}
+        open={!!taskToEdit}
+        onClose={() => setTaskToEdit(null)}
+        onSaved={(updated) => {
+          setTasks((rows) =>
+            sortTasks(rows.map((r) => (r.id === updated.id ? updated : r))),
+          );
+          setTaskToEdit(null);
+        }}
       />
       <DeleteTaskDialog
         task={taskToDelete}

@@ -1,6 +1,6 @@
 "use client";
 
-import { MessageCircle, Paperclip, Trash2 } from "lucide-react";
+import { Pencil, Paperclip, Trash2 } from "lucide-react";
 
 import { SelectField } from "@/components/ui/select-field";
 import type { TaskRow } from "@/lib/tasks/constants";
@@ -26,13 +26,28 @@ type Props = {
   layout: "grid" | "list";
   onStatusChange: (id: string, status: TaskRow["status"]) => void;
   onDeleteRequest: (task: TaskRow) => void;
+  onEditRequest: (task: TaskRow) => void;
 };
 
-export function TaskCard({ task, layout, onStatusChange, onDeleteRequest }: Props) {
+export function TaskCard({
+  task,
+  layout,
+  onStatusChange,
+  onDeleteRequest,
+  onEditRequest,
+}: Props) {
   const accent = tagAccent[task.primary_tag];
   const attachmentCount = attachmentsToLines(task.attachments)
     .split("\n")
     .filter(Boolean).length;
+
+  const dueLabel = task.due_at
+    ? new Date(task.due_at).toLocaleDateString(undefined, {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      })
+    : null;
 
   const inner = (
     <div className="flex min-w-0 flex-1 flex-col gap-3 p-4">
@@ -42,14 +57,24 @@ export function TaskCard({ task, layout, onStatusChange, onDeleteRequest }: Prop
         >
           {accent.label}
         </span>
-        <button
-          type="button"
-          onClick={() => onDeleteRequest(task)}
-          className="rounded-lg p-1.5 text-neutral-500 transition hover:bg-neutral-900 hover:text-white"
-          aria-label="Delete task"
-        >
-          <Trash2 className="size-4" />
-        </button>
+        <div className="flex shrink-0 gap-0.5">
+          <button
+            type="button"
+            onClick={() => onEditRequest(task)}
+            className="rounded-lg p-1.5 text-neutral-500 transition hover:bg-neutral-900 hover:text-white"
+            aria-label="Edit task"
+          >
+            <Pencil className="size-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => onDeleteRequest(task)}
+            className="rounded-lg p-1.5 text-neutral-500 transition hover:bg-neutral-900 hover:text-white"
+            aria-label="Delete task"
+          >
+            <Trash2 className="size-4" />
+          </button>
+        </div>
       </div>
       <div className="min-w-0 flex-1">
         <h3 className="font-semibold leading-snug text-white">{task.title}</h3>
@@ -58,18 +83,18 @@ export function TaskCard({ task, layout, onStatusChange, onDeleteRequest }: Prop
             {task.description}
           </p>
         ) : null}
-      </div>
-      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-neutral-800/80 pt-3">
-        <div className="flex items-center gap-4 text-neutral-500">
-          <span className="flex items-center gap-1 text-xs">
-            <MessageCircle className="size-3.5" aria-hidden />
-            0
+        <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-neutral-500">
+          <span className="rounded-md bg-neutral-900 px-2 py-0.5 font-medium capitalize text-neutral-300">
+            {task.priority}
           </span>
-          <span className="flex items-center gap-1 text-xs">
+          {dueLabel ? <span>{dueLabel}</span> : null}
+          <span className="flex items-center gap-1">
             <Paperclip className="size-3.5" aria-hidden />
             {attachmentCount}
           </span>
         </div>
+      </div>
+      <div className="flex flex-wrap items-center justify-end gap-2 border-t border-neutral-800/80 pt-3">
         <SelectField
           value={task.status}
           onValueChange={(v) =>

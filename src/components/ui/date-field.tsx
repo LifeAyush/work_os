@@ -31,6 +31,8 @@ type Props = {
   onChange: (ymd: string) => void;
   id?: string;
   placeholder?: string;
+  /** When true, any calendar date is selectable (e.g. edit overdue tasks). */
+  allowPastDates?: boolean;
 };
 
 export function DateField({
@@ -38,12 +40,18 @@ export function DateField({
   onChange,
   id,
   placeholder = "Pick a date",
+  allowPastDates = false,
 }: Props) {
   const [open, setOpen] = useState(false);
   const selected = parseYMD(value);
   const todayStart = startOfTodayLocal();
   const defaultMonth =
-    selected && selected >= todayStart ? selected : todayStart;
+    selected && (allowPastDates || selected >= todayStart)
+      ? selected
+      : todayStart;
+  const startMonth = allowPastDates
+    ? new Date(2000, 0)
+    : todayStart;
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -76,9 +84,9 @@ export function DateField({
           selected={selected}
           defaultMonth={defaultMonth}
           captionLayout="dropdown"
-          startMonth={todayStart}
+          startMonth={startMonth}
           endMonth={new Date(2036, 11)}
-          disabled={{ before: todayStart }}
+          disabled={allowPastDates ? undefined : { before: todayStart }}
           onSelect={(d) => {
             if (d) {
               onChange(toYMD(d));

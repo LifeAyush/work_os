@@ -4,7 +4,7 @@ import { requireSessionUser } from "@/lib/auth/api-session";
 import type { PrimaryTag, TaskRow, TaskStatus } from "@/lib/tasks/constants";
 import {
   attachmentsFromTextarea,
-  isOnOrAfterTodayYMD,
+  isValidYMD,
   parsePrimaryTag,
   parsePriority,
   parseTaskStatus,
@@ -44,16 +44,22 @@ export async function PATCH(request: Request, ctx: Ctx) {
       updated_at: new Date().toISOString(),
     };
 
-    if (typeof body.title === "string") patch.title = body.title.trim();
+    if (typeof body.title === "string") {
+      const t = body.title.trim();
+      if (!t) {
+        return NextResponse.json({ error: "title cannot be empty" }, { status: 400 });
+      }
+      patch.title = t;
+    }
     if (typeof body.description === "string") patch.description = body.description;
     if (typeof body.attachments === "string") {
       patch.attachments = attachmentsFromTextarea(body.attachments);
     }
     if (typeof body.due_at === "string" && body.due_at.trim()) {
       const ymd = body.due_at.trim();
-      if (!isOnOrAfterTodayYMD(ymd)) {
+      if (!isValidYMD(ymd)) {
         return NextResponse.json(
-          { error: "due_at must be today or a future date" },
+          { error: "due_at must be YYYY-MM-DD" },
           { status: 400 },
         );
       }
