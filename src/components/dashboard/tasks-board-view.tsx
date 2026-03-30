@@ -22,7 +22,7 @@ import { useMemo, useState } from "react";
 import type { TaskRow, TaskStatus } from "@/lib/tasks/constants";
 import { STATUSES } from "@/lib/tasks/constants";
 import { sortTasks } from "@/lib/tasks/sort";
-import { tagAccent } from "@/lib/tasks/tag-styles";
+import { accentFromHex } from "@/lib/tasks/tag-styles";
 import { attachmentsToLines } from "@/lib/tasks/validation";
 
 const COLUMN_LABEL: Record<TaskStatus, string> = {
@@ -53,7 +53,10 @@ function BoardTaskCard({
   onEditRequest,
   onDeleteRequest,
 }: BoardTaskCardProps) {
-  const accent = tagAccent[task.primary_tag];
+  const accent = accentFromHex(
+    task.category.color_hex,
+    task.category.name,
+  );
   const attachmentCount = attachmentsToLines(task.attachments)
     .split("\n")
     .filter(Boolean).length;
@@ -84,7 +87,11 @@ function BoardTaskCard({
         isDragging ? "opacity-40" : ""
       }`}
     >
-      <div className={`h-0.5 w-full rounded-t-lg ${accent.line}`} aria-hidden />
+      <div
+        className="h-0.5 w-full rounded-t-lg"
+        style={accent.lineStyle}
+        aria-hidden
+      />
       <div className="flex gap-2 p-3">
         <button
           type="button"
@@ -98,9 +105,10 @@ function BoardTaskCard({
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
             <span
-              className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium capitalize ${accent.pill}`}
+              className="inline-flex max-w-full truncate rounded-full px-2 py-0.5 text-[10px] font-medium"
+              style={accent.pillStyle}
             >
-              {accent.label}
+              {task.category.name}
             </span>
             <div className="flex shrink-0 gap-0.5">
               <button

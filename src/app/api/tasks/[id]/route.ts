@@ -1,30 +1,20 @@
 import { NextResponse } from "next/server";
 
+import { categoryOwnedByUser } from "@/lib/categories/verify";
 import { requireSessionUser } from "@/lib/auth/api-session";
-import type { PrimaryTag, TaskRow, TaskStatus } from "@/lib/tasks/constants";
+import type { TaskRow } from "@/lib/tasks/constants";
+import {
+  TASK_SELECT_WITH_CATEGORY,
+  taskRowFromDb,
+} from "@/lib/tasks/task-db";
 import {
   attachmentsFromTextarea,
   isValidYMD,
-  parsePrimaryTag,
   parsePriority,
   parseTaskStatus,
+  parseUuid,
 } from "@/lib/tasks/validation";
 import { createAdminClient } from "@/lib/supabase/admin";
-
-function rowFromDb(r: Record<string, unknown>): TaskRow {
-  return {
-    id: String(r.id),
-    title: String(r.title ?? ""),
-    status: String(r.status) as TaskStatus,
-    primary_tag: String(r.primary_tag) as PrimaryTag,
-    priority: String(r.priority) as TaskRow["priority"],
-    due_at: r.due_at != null ? String(r.due_at) : null,
-    description: String(r.description ?? ""),
-    attachments: String(r.attachments ?? ""),
-    created_at: String(r.created_at ?? ""),
-    updated_at: String(r.updated_at ?? r.created_at ?? ""),
-  };
-}
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -79,12 +69,19 @@ export async function PATCH(request: Request, ctx: Ctx) {
       }
       patch.priority = p;
     }
-    if (typeof body.primary_tag === "string") {
-      const t = parsePrimaryTag(body.primary_tag);
-      if (!t) {
-        return NextResponse.json({ error: "invalid primary_tag" }, { status: 400 });
+    if (typeof body.category_id === "string") {
+      const cid = parseUuid(body.category_id);
+      if (!cid) {
+        return NextResponse.json({ error: "invalid category_id" }, { status: 400 });
       }
-      patch.primary_tag = t;
+      const owned = await categoryOwnedByUser(userId, cid);
+      if (!owned) {
+        return NextResponse.json(
+          { error: "invalid or forbidden category_id" },
+          { status: 403 },
+        );
+      }
+      patch.category_id = cid;
     }
 
     const supabase = createAdminClient();
@@ -93,7 +90,7 @@ export async function PATCH(request: Request, ctx: Ctx) {
       .update(patch)
       .eq("id", id)
       .eq("user_id", userId)
-      .select("*")
+      .select(TASK_SELECT_WITH_CATEGORY)
       .maybeSingle();
 
     if (error) {
@@ -103,9 +100,17 @@ export async function PATCH(request: Request, ctx: Ctx) {
       return NextResponse.json({ error: "not found" }, { status: 404 });
     }
 
-    return NextResponse.json({
-      task: rowFromDb(data as Record<string, unknown>),
-    });
+    let task: TaskRow;
+    try {
+      task = taskRowFromDb(data as Record<string, unknown>);
+    } catch {
+      return NextResponse.json(
+        { error: "Task data is missing category embed" },
+        { status: 500 },
+      );
+    }
+
+    return NextResponse.json({ task });
   } catch (e) {
     const message = e instanceof Error ? e.message : "Unknown error";
     return NextResponse.json({ error: message }, { status: 500 });

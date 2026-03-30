@@ -5,7 +5,7 @@ import { Pencil, Paperclip, Trash2 } from "lucide-react";
 import { SelectField } from "@/components/ui/select-field";
 import type { TaskRow } from "@/lib/tasks/constants";
 import { STATUSES } from "@/lib/tasks/constants";
-import { tagAccent } from "@/lib/tasks/tag-styles";
+import { accentFromHex } from "@/lib/tasks/tag-styles";
 import { attachmentsToLines } from "@/lib/tasks/validation";
 
 const statusLabel: Record<string, string> = {
@@ -36,7 +36,10 @@ export function TaskCard({
   onDeleteRequest,
   onEditRequest,
 }: Props) {
-  const accent = tagAccent[task.primary_tag];
+  const accent = accentFromHex(
+    task.category.color_hex,
+    task.category.name,
+  );
   const attachmentCount = attachmentsToLines(task.attachments)
     .split("\n")
     .filter(Boolean).length;
@@ -53,9 +56,10 @@ export function TaskCard({
     <div className="flex min-w-0 flex-1 flex-col gap-3 p-4">
       <div className="flex items-start justify-between gap-2">
         <span
-          className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${accent.pill}`}
+          className="inline-flex max-w-full truncate rounded-full px-2.5 py-0.5 text-xs font-medium"
+          style={accent.pillStyle}
         >
-          {accent.label}
+          {task.category.name}
         </span>
         <div className="flex shrink-0 gap-0.5">
           <button
@@ -114,7 +118,8 @@ export function TaskCard({
     return (
       <article className="flex min-h-[5.5rem] flex-row overflow-hidden rounded-xl border border-neutral-800 bg-neutral-950">
         <div
-          className={`w-1 shrink-0 self-stretch rounded-l-xl ${accent.line}`}
+          className="w-1 shrink-0 self-stretch rounded-l-xl"
+          style={accent.lineStyle}
           aria-hidden
         />
         {inner}
@@ -124,7 +129,10 @@ export function TaskCard({
 
   return (
     <article className="flex h-full min-h-[220px] flex-col overflow-hidden rounded-xl border border-neutral-800 bg-neutral-950">
-      <div className={`h-1 w-full shrink-0 rounded-t-xl ${accent.line}`} />
+      <div
+        className="h-1 w-full shrink-0 rounded-t-xl"
+        style={accent.lineStyle}
+      />
       {inner}
     </article>
   );

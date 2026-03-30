@@ -1,31 +1,21 @@
 import { NextResponse } from "next/server";
 
+import { categoryOwnedByUser } from "@/lib/categories/verify";
 import { requireSessionUser } from "@/lib/auth/api-session";
-import type { PrimaryTag, TaskRow, TaskStatus } from "@/lib/tasks/constants";
+import type { TaskRow } from "@/lib/tasks/constants";
+import {
+  TASK_SELECT_WITH_CATEGORY,
+  taskRowFromDb,
+} from "@/lib/tasks/task-db";
 import { sortTasks } from "@/lib/tasks/sort";
 import {
   attachmentsFromTextarea,
   isOnOrAfterTodayYMD,
-  parsePrimaryTag,
   parsePriority,
   parseTaskStatus,
+  parseUuid,
 } from "@/lib/tasks/validation";
 import { createAdminClient } from "@/lib/supabase/admin";
-
-function rowFromDb(r: Record<string, unknown>): TaskRow {
-  return {
-    id: String(r.id),
-    title: String(r.title ?? ""),
-    status: String(r.status) as TaskStatus,
-    primary_tag: String(r.primary_tag) as PrimaryTag,
-    priority: String(r.priority) as TaskRow["priority"],
-    due_at: r.due_at != null ? String(r.due_at) : null,
-    description: String(r.description ?? ""),
-    attachments: String(r.attachments ?? ""),
-    created_at: String(r.created_at ?? ""),
-    updated_at: String(r.updated_at ?? r.created_at ?? ""),
-  };
-}
 
 export async function GET(request: Request) {
   const auth = await requireSessionUser();
@@ -33,13 +23,23 @@ export async function GET(request: Request) {
   const { userId } = auth;
 
   const { searchParams } = new URL(request.url);
-  const tag = searchParams.get("tag") ?? "all";
+  const categoryParam = searchParams.get("category_id") ?? "all";
 
   try {
     const supabase = createAdminClient();
-    let q = supabase.from("tasks").select("*").eq("user_id", userId);
-    if (tag !== "all") {
-      q = q.eq("primary_tag", tag);
+    let q = supabase
+      .from("tasks")
+      .select(TASK_SELECT_WITH_CATEGORY)
+      .eq("user_id", userId);
+    if (categoryParam !== "all") {
+      const cid = parseUuid(categoryParam);
+      if (!cid) {
+        return NextResponse.json(
+          { error: "invalid category_id" },
+          { status: 400 },
+        );
+      }
+      q = q.eq("category_id", cid);
     }
     const { data, error } = await q;
     if (error) {
@@ -48,9 +48,20 @@ export async function GET(request: Request) {
         { status: 500 },
       );
     }
-    const rows = (data ?? []).map((r) =>
-      rowFromDb(r as Record<string, unknown>),
-    );
+    const rows: TaskRow[] = [];
+    for (const r of data ?? []) {
+      try {
+        rows.push(taskRowFromDb(r as Record<string, unknown>));
+      } catch {
+        return NextResponse.json(
+          {
+            error:
+              "Task data is missing categories. Run supabase/m3_categories.sql on your database.",
+          },
+          { status: 500 },
+        );
+      }
+    }
     return NextResponse.json({ tasks: sortTasks(rows) });
   } catch (e) {
     const message = e instanceof Error ? e.message : "Unknown error";
@@ -74,8 +85,8 @@ export async function POST(request: Request) {
     const priority = parsePriority(
       typeof body.priority === "string" ? body.priority : "",
     );
-    const primary_tag = parsePrimaryTag(
-      typeof body.primary_tag === "string" ? body.primary_tag : "",
+    const categoryId = parseUuid(
+      typeof body.category_id === "string" ? body.category_id : "",
     );
 
     if (!title) {
@@ -90,10 +101,18 @@ export async function POST(request: Request) {
         { status: 400 },
       );
     }
-    if (!status || !priority || !primary_tag) {
+    if (!status || !priority || !categoryId) {
       return NextResponse.json(
-        { error: "status, priority, and primary_tag must be valid" },
+        { error: "status, priority, and category_id must be valid" },
         { status: 400 },
+      );
+    }
+
+    const owned = await categoryOwnedByUser(userId, categoryId);
+    if (!owned) {
+      return NextResponse.json(
+        { error: "invalid or forbidden category_id" },
+        { status: 403 },
       );
     }
 
@@ -113,22 +132,30 @@ export async function POST(request: Request) {
         title,
         status,
         priority,
-        primary_tag,
+        category_id: categoryId,
         due_at,
         description,
         attachments,
         updated_at: new Date().toISOString(),
       })
-      .select("*")
+      .select(TASK_SELECT_WITH_CATEGORY)
       .single();
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({
-      task: rowFromDb(data as Record<string, unknown>),
-    });
+    let task: TaskRow;
+    try {
+      task = taskRowFromDb(data as Record<string, unknown>);
+    } catch {
+      return NextResponse.json(
+        { error: "Failed to load task category after create" },
+        { status: 500 },
+      );
+    }
+
+    return NextResponse.json({ task });
   } catch (e) {
     const message = e instanceof Error ? e.message : "Unknown error";
     return NextResponse.json({ error: message }, { status: 500 });

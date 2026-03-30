@@ -5,12 +5,10 @@ import { useEffect, useState } from "react";
 
 import { DateField } from "@/components/ui/date-field";
 import { SelectField } from "@/components/ui/select-field";
-import type { TaskRow } from "@/lib/tasks/constants";
+import type { CategoryRow, TaskRow } from "@/lib/tasks/constants";
 import {
   PRIORITIES,
-  PRIMARY_TAGS,
   STATUSES,
-  type PrimaryTag,
   type Priority,
   type TaskStatus,
 } from "@/lib/tasks/constants";
@@ -21,6 +19,7 @@ type Props = {
   open: boolean;
   onClose: () => void;
   onSaved: (updated: TaskRow) => void;
+  categories: CategoryRow[];
 };
 
 const statusOptions = STATUSES.map((s) => ({
@@ -33,16 +32,17 @@ const priorityOptions = PRIORITIES.map((p) => ({
   label: p.charAt(0).toUpperCase() + p.slice(1),
 }));
 
-const tagOptions = PRIMARY_TAGS.map((t) => ({
-  value: t,
-  label: t,
-}));
-
-export function EditTaskDialog({ task, open, onClose, onSaved }: Props) {
+export function EditTaskDialog({
+  task,
+  open,
+  onClose,
+  onSaved,
+  categories,
+}: Props) {
   const [title, setTitle] = useState("");
   const [status, setStatus] = useState<TaskStatus>("todo");
   const [priority, setPriority] = useState<Priority>("med");
-  const [primaryTag, setPrimaryTag] = useState<PrimaryTag>("general");
+  const [categoryId, setCategoryId] = useState("");
   const [dueAt, setDueAt] = useState("");
   const [description, setDescription] = useState("");
   const [attachments, setAttachments] = useState("");
@@ -54,7 +54,7 @@ export function EditTaskDialog({ task, open, onClose, onSaved }: Props) {
     setTitle(task.title);
     setStatus(task.status);
     setPriority(task.priority);
-    setPrimaryTag(task.primary_tag);
+    setCategoryId(task.category_id);
     setDueAt(dueAtIsoToYMD(task.due_at));
     setDescription(task.description);
     setAttachments(attachmentsToLines(task.attachments));
@@ -63,6 +63,11 @@ export function EditTaskDialog({ task, open, onClose, onSaved }: Props) {
 
   if (!open || !task) return null;
 
+  const categoryOptions = categories.map((c) => ({
+    value: c.id,
+    label: c.name,
+  }));
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const current = task;
@@ -70,6 +75,10 @@ export function EditTaskDialog({ task, open, onClose, onSaved }: Props) {
     setError(null);
     if (!dueAt.trim()) {
       setError("Please choose a due date.");
+      return;
+    }
+    if (!categoryId) {
+      setError("Please choose a category.");
       return;
     }
     setSubmitting(true);
@@ -81,7 +90,7 @@ export function EditTaskDialog({ task, open, onClose, onSaved }: Props) {
           title,
           status,
           priority,
-          primary_tag: primaryTag,
+          category_id: categoryId,
           due_at: dueAt,
           description,
           attachments,
@@ -159,13 +168,13 @@ export function EditTaskDialog({ task, open, onClose, onSaved }: Props) {
             </div>
           </div>
           <div className="flex flex-col gap-1 text-sm">
-            <span className="text-neutral-300">Primary tag</span>
+            <span className="text-neutral-300">Category</span>
             <SelectField
-              value={primaryTag}
-              onValueChange={(v) => setPrimaryTag(v as PrimaryTag)}
-              options={tagOptions}
-              placeholder="Tag"
-              aria-label="Primary tag"
+              value={categoryId}
+              onValueChange={setCategoryId}
+              options={categoryOptions}
+              placeholder="Category"
+              aria-label="Category"
             />
           </div>
           <div className="flex flex-col gap-1 text-sm">

@@ -1,5 +1,23 @@
-export const PRIMARY_TAGS = ["breathe", "freelance", "general"] as const;
-export type PrimaryTag = (typeof PRIMARY_TAGS)[number];
+/** Quick-pick presets for the categories UI only (not stored as an enum). */
+export const CATEGORY_COLOR_PRESETS = [
+  "#3b82f6",
+  "#22c55e",
+  "#a855f7",
+  "#f59e0b",
+  "#f43f5e",
+  "#06b6d4",
+  "#f97316",
+  "#71717a",
+] as const;
+
+export type CategoryRow = {
+  id: string;
+  name: string;
+  slug: string;
+  color_hex: string;
+  created_at: string;
+  updated_at: string;
+};
 
 export const STATUSES = [
   "todo",
@@ -17,7 +35,8 @@ export type TaskRow = {
   id: string;
   title: string;
   status: TaskStatus;
-  primary_tag: PrimaryTag;
+  category_id: string;
+  category: CategoryRow;
   priority: Priority;
   due_at: string | null;
   description: string;

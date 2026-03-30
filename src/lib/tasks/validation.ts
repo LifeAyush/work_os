@@ -1,11 +1,12 @@
-import {
-  type PrimaryTag,
-  type Priority,
-  type TaskStatus,
-  PRIORITIES,
-  PRIMARY_TAGS,
-  STATUSES,
-} from "./constants";
+import { type Priority, type TaskStatus, PRIORITIES, STATUSES } from "./constants";
+
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+export function parseUuid(v: string): string | null {
+  const t = v.trim();
+  return UUID_RE.test(t) ? t : null;
+}
 
 export function parseTaskStatus(v: string): TaskStatus | null {
   return (STATUSES as readonly string[]).includes(v)
@@ -19,10 +20,37 @@ export function parsePriority(v: string): Priority | null {
     : null;
 }
 
-export function parsePrimaryTag(v: string): PrimaryTag | null {
-  return (PRIMARY_TAGS as readonly string[]).includes(v)
-    ? (v as PrimaryTag)
-    : null;
+const DEFAULT_HEX = "#71717a";
+
+/** Normalize to `#rrggbb` or return null if invalid (only hex digits, 3 or 6 chars). */
+export function normalizeHexColor(input: string): string | null {
+  const raw = input.trim();
+  if (!raw) return null;
+  let s = raw.startsWith("#") ? raw.slice(1) : raw;
+  if (!/^[0-9a-fA-F]+$/.test(s)) return null;
+  if (s.length === 3) {
+    s = s
+      .split("")
+      .map((c) => c + c)
+      .join("");
+  }
+  if (s.length !== 6) return null;
+  return `#${s.toLowerCase()}`;
+}
+
+/** Safe hex for DB/API; falls back to neutral zinc-500. */
+export function hexColorOrDefault(input: string | undefined | null): string {
+  return normalizeHexColor(String(input ?? "")) ?? DEFAULT_HEX;
+}
+
+/** URL-safe slug from display name; empty if nothing left after normalize. */
+export function slugFromName(name: string): string {
+  return name
+    .trim()
+    .toLowerCase()
+    .replace(/['']/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
 }
 
 export function attachmentsFromTextarea(raw: string): string {

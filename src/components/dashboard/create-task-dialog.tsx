@@ -1,15 +1,14 @@
 "use client";
 
 import { X } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { DateField } from "@/components/ui/date-field";
 import { SelectField } from "@/components/ui/select-field";
+import type { CategoryRow } from "@/lib/tasks/constants";
 import {
   PRIORITIES,
-  PRIMARY_TAGS,
   STATUSES,
-  type PrimaryTag,
   type Priority,
   type TaskStatus,
 } from "@/lib/tasks/constants";
@@ -18,6 +17,7 @@ type Props = {
   open: boolean;
   onClose: () => void;
   onCreated: () => void;
+  categories: CategoryRow[];
 };
 
 const statusOptions = STATUSES.map((s) => ({
@@ -30,27 +30,50 @@ const priorityOptions = PRIORITIES.map((p) => ({
   label: p.charAt(0).toUpperCase() + p.slice(1),
 }));
 
-const tagOptions = PRIMARY_TAGS.map((t) => ({
-  value: t,
-  label: t,
-}));
-
-export function CreateTaskDialog({ open, onClose, onCreated }: Props) {
+export function CreateTaskDialog({
+  open,
+  onClose,
+  onCreated,
+  categories,
+}: Props) {
   const [title, setTitle] = useState("");
   const [status, setStatus] = useState<TaskStatus>("todo");
   const [priority, setPriority] = useState<Priority>("med");
-  const [primaryTag, setPrimaryTag] = useState<PrimaryTag>("general");
+  const [categoryId, setCategoryId] = useState("");
   const [dueAt, setDueAt] = useState("");
   const [description, setDescription] = useState("");
   const [attachments, setAttachments] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (!open) return;
+    const def =
+      categories.find((c) => c.slug === "general")?.id ??
+      categories[0]?.id ??
+      "";
+    setCategoryId(def);
+    setError(null);
+  }, [open, categories]);
+
   if (!open) return null;
+
+  const categoryOptions = categories.map((c) => ({
+    value: c.id,
+    label: c.name,
+  }));
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    if (!categories.length) {
+      setError("Add a category first (Categories tab), or run the database migration.");
+      return;
+    }
+    if (!categoryId) {
+      setError("Please choose a category.");
+      return;
+    }
     if (!dueAt.trim()) {
       setError("Please choose a due date.");
       return;
@@ -64,7 +87,7 @@ export function CreateTaskDialog({ open, onClose, onCreated }: Props) {
           title,
           status,
           priority,
-          primary_tag: primaryTag,
+          category_id: categoryId,
           due_at: dueAt,
           description,
           attachments,
@@ -78,7 +101,6 @@ export function CreateTaskDialog({ open, onClose, onCreated }: Props) {
       setTitle("");
       setStatus("todo");
       setPriority("med");
-      setPrimaryTag("general");
       setDueAt("");
       setDescription("");
       setAttachments("");
@@ -147,13 +169,13 @@ export function CreateTaskDialog({ open, onClose, onCreated }: Props) {
             </div>
           </div>
           <div className="flex flex-col gap-1 text-sm">
-            <span className="text-neutral-300">Primary tag</span>
+            <span className="text-neutral-300">Category</span>
             <SelectField
-              value={primaryTag}
-              onValueChange={(v) => setPrimaryTag(v as PrimaryTag)}
-              options={tagOptions}
-              placeholder="Tag"
-              aria-label="Primary tag"
+              value={categoryId}
+              onValueChange={setCategoryId}
+              options={categoryOptions}
+              placeholder="Category"
+              aria-label="Category"
             />
           </div>
           <div className="flex flex-col gap-1 text-sm">

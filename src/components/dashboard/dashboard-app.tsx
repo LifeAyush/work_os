@@ -9,6 +9,7 @@ import {
   LogOut,
   Plus,
   Search,
+  Tags,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
@@ -19,10 +20,10 @@ import {
   readStoredProfile,
 } from "@/lib/auth/profile-storage";
 import { createClient } from "@/lib/supabase/client";
-import type { PrimaryTag, TaskRow } from "@/lib/tasks/constants";
-import { PRIMARY_TAGS } from "@/lib/tasks/constants";
+import type { CategoryRow, TaskRow } from "@/lib/tasks/constants";
 import { sortTasks } from "@/lib/tasks/sort";
 
+import { CategoriesManager } from "./categories-manager";
 import { CreateTaskDialog } from "./create-task-dialog";
 import { DeleteTaskDialog } from "./delete-task-dialog";
 import { EditTaskDialog } from "./edit-task-dialog";
@@ -30,18 +31,12 @@ import { SignOutDialog } from "./sign-out-dialog";
 import { TaskCard } from "./task-card";
 import { TasksBoardView } from "./tasks-board-view";
 
-type Tab = "tasks" | "tracker";
-
-const sidebarLabels: Record<PrimaryTag | "all", string> = {
-  all: "All tasks",
-  breathe: "breathe",
-  freelance: "freelance",
-  general: "general",
-};
+type Tab = "tasks" | "tracker" | "categories";
 
 export function DashboardApp() {
   const [tab, setTab] = useState<Tab>("tasks");
-  const [filterTag, setFilterTag] = useState<PrimaryTag | "all">("all");
+  const [filterCategoryId, setFilterCategoryId] = useState<string>("all");
+  const [categories, setCategories] = useState<CategoryRow[]>([]);
   const [viewMode, setViewMode] = useState<"grid" | "list" | "board">("grid");
   const [search, setSearch] = useState("");
   const [tasks, setTasks] = useState<TaskRow[]>([]);
@@ -59,11 +54,26 @@ export function DashboardApp() {
   const [displayName, setDisplayName] = useState(envFallback);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
+  const loadCategories = useCallback(async () => {
+    try {
+      const res = await fetch("/api/categories");
+      const json = (await res.json()) as {
+        categories?: CategoryRow[];
+        error?: string;
+      };
+      if (res.ok) {
+        setCategories(json.categories ?? []);
+      }
+    } catch {
+      /* ignore; tasks screen may still work */
+    }
+  }, []);
+
   const loadTasks = useCallback(async () => {
     setLoadError(null);
     setLoading(true);
     try {
-      const res = await fetch("/api/tasks?tag=all");
+      const res = await fetch("/api/tasks?category_id=all");
       const json = (await res.json()) as {
         tasks?: TaskRow[];
         error?: string;
@@ -85,6 +95,10 @@ export function DashboardApp() {
   useEffect(() => {
     void loadTasks();
   }, [loadTasks]);
+
+  useEffect(() => {
+    void loadCategories();
+  }, [loadCategories]);
 
   useEffect(() => {
     const stored = readStoredProfile();
@@ -125,28 +139,33 @@ export function DashboardApp() {
   }
 
   const counts = useMemo(() => {
-    const c: Record<PrimaryTag | "all", number> = {
-      all: tasks.length,
-      breathe: 0,
-      freelance: 0,
-      general: 0,
-    };
+    const c: Record<string, number> = { all: tasks.length };
     for (const t of tasks) {
-      c[t.primary_tag] += 1;
+      c[t.category_id] = (c[t.category_id] ?? 0) + 1;
     }
     return c;
   }, [tasks]);
 
+  const sidebarCategoryItems = useMemo(
+    () => [
+      { id: "all" as const, name: "All tasks" },
+      ...categories.map((c) => ({ id: c.id, name: c.name })),
+    ],
+    [categories],
+  );
+
   const filteredTasks = useMemo(() => {
     const q = search.trim().toLowerCase();
     return tasks.filter((t) => {
-      if (filterTag !== "all" && t.primary_tag !== filterTag) return false;
+      if (filterCategoryId !== "all" && t.category_id !== filterCategoryId) {
+        return false;
+      }
       if (!q) return true;
       const inTitle = t.title.toLowerCase().includes(q);
       const inDesc = t.description.toLowerCase().includes(q);
       return inTitle || inDesc;
     });
-  }, [tasks, filterTag, search]);
+  }, [tasks, filterCategoryId, search]);
 
   async function handleStatusChange(id: string, status: TaskRow["status"]) {
     const prev = tasks;
@@ -237,6 +256,15 @@ export function DashboardApp() {
           >
             <BarChart2 className="size-5" />
           </button>
+          <button
+            type="button"
+            onClick={() => setTab("categories")}
+            className={`${navBtn} ${tab === "categories" ? navBtnActive : ""}`}
+            aria-label="Categories"
+            aria-current={tab === "categories" ? "page" : undefined}
+          >
+            <Tags className="size-5" />
+          </button>
         </nav>
         <button
           type="button"
@@ -250,31 +278,33 @@ export function DashboardApp() {
         </button>
       </aside>
 
-      <aside className="hidden w-52 shrink-0 flex-col border-r border-neutral-900 py-6 pl-4 pr-3 md:flex">
-        <h2 className="mb-6 text-sm font-semibold tracking-wide text-neutral-400">
-          My tasks
-        </h2>
-        <ul className="flex flex-col gap-1">
-          {(["all", ...PRIMARY_TAGS] as const).map((key) => (
-            <li key={key}>
-              <button
-                type="button"
-                onClick={() => setFilterTag(key)}
-                className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition ${
-                  filterTag === key
-                    ? "bg-neutral-900 text-white"
-                    : "text-neutral-400 hover:bg-neutral-950 hover:text-white"
-                }`}
-              >
-                <span className="capitalize">{sidebarLabels[key]}</span>
-                <span className="rounded-md bg-neutral-800 px-2 py-0.5 text-xs text-neutral-300">
-                  {counts[key]}
-                </span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      </aside>
+      {tab === "tasks" ? (
+        <aside className="hidden w-52 shrink-0 flex-col border-r border-neutral-900 py-6 pl-4 pr-3 md:flex">
+          <h2 className="mb-6 text-sm font-semibold tracking-wide text-neutral-400">
+            My tasks
+          </h2>
+          <ul className="flex flex-col gap-1">
+            {sidebarCategoryItems.map((item) => (
+              <li key={item.id}>
+                <button
+                  type="button"
+                  onClick={() => setFilterCategoryId(item.id)}
+                  className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition ${
+                    filterCategoryId === item.id
+                      ? "bg-neutral-900 text-white"
+                      : "text-neutral-400 hover:bg-neutral-950 hover:text-white"
+                  }`}
+                >
+                  <span className="truncate">{item.name}</span>
+                  <span className="shrink-0 rounded-md bg-neutral-800 px-2 py-0.5 text-xs text-neutral-300">
+                    {counts[item.id] ?? 0}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </aside>
+      ) : null}
 
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex flex-col gap-4 border-b border-neutral-900 px-4 py-4 sm:px-6 lg:px-8">
@@ -356,19 +386,21 @@ export function DashboardApp() {
         <div className="flex flex-1 flex-col overflow-auto px-4 py-6 sm:px-6 lg:px-8">
           {tab === "tasks" ? (
             <div className="-mt-2 mb-4 flex gap-2 overflow-x-auto pb-1 md:hidden">
-              {(["all", ...PRIMARY_TAGS] as const).map((key) => (
+              {sidebarCategoryItems.map((item) => (
                 <button
-                  key={key}
+                  key={item.id}
                   type="button"
-                  onClick={() => setFilterTag(key)}
-                  className={`shrink-0 rounded-full border px-3 py-1 text-xs capitalize transition ${
-                    filterTag === key
+                  onClick={() => setFilterCategoryId(item.id)}
+                  className={`shrink-0 rounded-full border px-3 py-1 text-xs transition ${
+                    filterCategoryId === item.id
                       ? "border-white bg-white text-black"
                       : "border-neutral-700 bg-neutral-950 text-neutral-300"
                   }`}
                 >
-                  {sidebarLabels[key]}{" "}
-                  <span className="text-neutral-500">({counts[key]})</span>
+                  <span className="truncate">{item.name}</span>{" "}
+                  <span className="text-neutral-500">
+                    ({counts[item.id] ?? 0})
+                  </span>
                 </button>
               ))}
             </div>
@@ -379,11 +411,14 @@ export function DashboardApp() {
               <p className="mt-1 text-amber-200/80">{loadError}</p>
               <p className="mt-2 text-xs text-amber-200/60">
                 In the Supabase SQL editor, run migrations in order:{" "}
+                <code className="rounded bg-black/30 px-1">supabase/tasks.sql</code> (fresh
+                projects), then{" "}
                 <code className="rounded bg-black/30 px-1">supabase/m1_schema.sql</code>, then{" "}
                 <code className="rounded bg-black/30 px-1">supabase/m2_tasks_user_id.sql</code>{" "}
-                (adds <code className="rounded bg-black/30 px-1">user_id</code> and clears existing
-                tasks). Use <code className="rounded bg-black/30 px-1">supabase/tasks.sql</code>{" "}
-                first on a fresh project.
+                (<code className="rounded bg-black/30 px-1">user_id</code>), then{" "}
+                <code className="rounded bg-black/30 px-1">supabase/m3_categories.sql</code>{" "}
+                (categories + <code className="rounded bg-black/30 px-1">category_id</code> on
+                tasks).
               </p>
             </div>
           ) : null}
@@ -396,6 +431,13 @@ export function DashboardApp() {
                 Weekly stats and charts will go here (M3). Nothing to show yet.
               </p>
             </div>
+          ) : tab === "categories" ? (
+            <CategoriesManager
+              onCategoriesChanged={() => {
+                void loadCategories();
+                void loadTasks();
+              }}
+            />
           ) : loading ? (
             <p className="text-neutral-500">Loading tasks…</p>
           ) : filteredTasks.length === 0 ? (
@@ -449,17 +491,23 @@ export function DashboardApp() {
       <CreateTaskDialog
         open={createOpen}
         onClose={() => setCreateOpen(false)}
-        onCreated={() => void loadTasks()}
+        onCreated={() => {
+          void loadTasks();
+          void loadCategories();
+        }}
+        categories={categories}
       />
       <EditTaskDialog
         task={taskToEdit}
         open={!!taskToEdit}
         onClose={() => setTaskToEdit(null)}
+        categories={categories}
         onSaved={(updated) => {
           setTasks((rows) =>
             sortTasks(rows.map((r) => (r.id === updated.id ? updated : r))),
           );
           setTaskToEdit(null);
+          void loadCategories();
         }}
       />
       <DeleteTaskDialog
