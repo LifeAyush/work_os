@@ -22,6 +22,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import type { CategoryRow, TaskRow } from "@/lib/tasks/constants";
 import { sortTasks } from "@/lib/tasks/sort";
+import { SelectField } from "@/components/ui/select-field";
 
 import { CategoriesManager } from "./categories-manager";
 import { CreateTaskDialog } from "./create-task-dialog";
@@ -146,12 +147,21 @@ export function DashboardApp() {
     return c;
   }, [tasks]);
 
-  const sidebarCategoryItems = useMemo(
+  const categoryFilterOptions = useMemo(
     () => [
       { id: "all" as const, name: "All tasks" },
       ...categories.map((c) => ({ id: c.id, name: c.name })),
     ],
     [categories],
+  );
+
+  const categorySelectOptions = useMemo(
+    () =>
+      categoryFilterOptions.map((item) => ({
+        value: item.id,
+        label: `${item.name} (${counts[item.id] ?? 0})`,
+      })),
+    [categoryFilterOptions, counts],
   );
 
   const filteredTasks = useMemo(() => {
@@ -278,38 +288,10 @@ export function DashboardApp() {
         </button>
       </aside>
 
-      {tab === "tasks" ? (
-        <aside className="hidden w-52 shrink-0 flex-col border-r border-neutral-900 py-6 pl-4 pr-3 md:flex">
-          <h2 className="mb-6 text-sm font-semibold tracking-wide text-neutral-400">
-            My tasks
-          </h2>
-          <ul className="flex flex-col gap-1">
-            {sidebarCategoryItems.map((item) => (
-              <li key={item.id}>
-                <button
-                  type="button"
-                  onClick={() => setFilterCategoryId(item.id)}
-                  className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition ${
-                    filterCategoryId === item.id
-                      ? "bg-neutral-900 text-white"
-                      : "text-neutral-400 hover:bg-neutral-950 hover:text-white"
-                  }`}
-                >
-                  <span className="truncate">{item.name}</span>
-                  <span className="shrink-0 rounded-md bg-neutral-800 px-2 py-0.5 text-xs text-neutral-300">
-                    {counts[item.id] ?? 0}
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        </aside>
-      ) : null}
-
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex flex-col gap-4 border-b border-neutral-900 px-4 py-4 sm:px-6 lg:px-8">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="relative min-w-[200px] max-w-md flex-1">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="relative min-w-[200px] max-w-md flex-1 basis-[min(100%,24rem)]">
               <Search
                 className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-500"
                 aria-hidden
@@ -322,8 +304,20 @@ export function DashboardApp() {
                 className="w-full rounded-xl border border-neutral-800 bg-neutral-950 py-2.5 pl-10 pr-4 text-sm text-white placeholder:text-neutral-600 focus:border-neutral-600 focus:outline-none"
               />
             </div>
+            {tab === "tasks" ? (
+              <div className="w-full min-w-[10rem] sm:w-52 sm:shrink-0">
+                <SelectField
+                  value={filterCategoryId}
+                  onValueChange={setFilterCategoryId}
+                  options={categorySelectOptions}
+                  placeholder="Category"
+                  aria-label="Filter by category"
+                  triggerClassName="w-full rounded-xl border-neutral-800 bg-neutral-950"
+                />
+              </div>
+            ) : null}
             <div
-              className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-neutral-700 bg-neutral-900 text-sm font-medium text-white"
+              className="ml-auto flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-neutral-700 bg-neutral-900 text-sm font-medium text-white"
               aria-hidden
             >
               {avatarUrl ? (
@@ -384,27 +378,6 @@ export function DashboardApp() {
         </header>
 
         <div className="flex flex-1 flex-col overflow-auto px-4 py-6 sm:px-6 lg:px-8">
-          {tab === "tasks" ? (
-            <div className="-mt-2 mb-4 flex gap-2 overflow-x-auto pb-1 md:hidden">
-              {sidebarCategoryItems.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => setFilterCategoryId(item.id)}
-                  className={`shrink-0 rounded-full border px-3 py-1 text-xs transition ${
-                    filterCategoryId === item.id
-                      ? "border-white bg-white text-black"
-                      : "border-neutral-700 bg-neutral-950 text-neutral-300"
-                  }`}
-                >
-                  <span className="truncate">{item.name}</span>{" "}
-                  <span className="text-neutral-500">
-                    ({counts[item.id] ?? 0})
-                  </span>
-                </button>
-              ))}
-            </div>
-          ) : null}
           {loadError ? (
             <div className="mb-4 rounded-xl border border-amber-900/60 bg-amber-950/30 px-4 py-3 text-sm text-amber-100">
               <p className="font-medium">Could not load tasks</p>
