@@ -8,6 +8,7 @@ import {
   List,
   LogOut,
   Plus,
+  Repeat,
   Search,
   Tags,
 } from "lucide-react";
@@ -25,14 +26,16 @@ import { sortTasks } from "@/lib/tasks/sort";
 import { SelectField } from "@/components/ui/select-field";
 
 import { CategoriesManager } from "./categories-manager";
+import { CreateRoutineDialog } from "./create-routine-dialog";
 import { CreateTaskDialog } from "./create-task-dialog";
 import { DeleteTaskDialog } from "./delete-task-dialog";
 import { EditTaskDialog } from "./edit-task-dialog";
 import { SignOutDialog } from "./sign-out-dialog";
 import { TaskCard } from "./task-card";
+import { RoutinesPanel } from "./routines-panel";
 import { TasksBoardView } from "./tasks-board-view";
 
-type Tab = "tasks" | "tracker" | "categories";
+type Tab = "tasks" | "routines" | "tracker" | "categories";
 
 export function DashboardApp() {
   const [tab, setTab] = useState<Tab>("tasks");
@@ -44,6 +47,8 @@ export function DashboardApp() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
+  const [routineCreateOpen, setRoutineCreateOpen] = useState(false);
+  const [routinesRefresh, setRoutinesRefresh] = useState(0);
   const [taskToDelete, setTaskToDelete] = useState<TaskRow | null>(null);
   const [taskToEdit, setTaskToEdit] = useState<TaskRow | null>(null);
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
@@ -236,17 +241,9 @@ export function DashboardApp() {
   return (
     <div className="flex min-h-dvh bg-black text-white">
       <aside className="flex w-14 shrink-0 flex-col items-center border-r border-neutral-900 py-4">
-        <div className="mb-4 flex size-10 items-center justify-center rounded-xl bg-neutral-900">
+        <div className="mb-6 flex size-10 items-center justify-center rounded-xl bg-neutral-900">
           <CheckSquare className="size-5 text-white" aria-hidden />
         </div>
-        <button
-          type="button"
-          onClick={() => setCreateOpen(true)}
-          className="mb-6 flex size-11 items-center justify-center rounded-xl bg-white text-black transition hover:bg-neutral-200"
-          aria-label="Add task"
-        >
-          <Plus className="size-5" />
-        </button>
         <nav className="flex flex-1 flex-col items-center gap-1">
           <button
             type="button"
@@ -256,6 +253,15 @@ export function DashboardApp() {
             aria-current={tab === "tasks" ? "page" : undefined}
           >
             <List className="size-5" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab("routines")}
+            className={`${navBtn} ${tab === "routines" ? navBtnActive : ""}`}
+            aria-label="Routines"
+            aria-current={tab === "routines" ? "page" : undefined}
+          >
+            <Repeat className="size-5" />
           </button>
           <button
             type="button"
@@ -291,7 +297,12 @@ export function DashboardApp() {
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex flex-col gap-4 border-b border-neutral-900 px-4 py-4 sm:px-6 lg:px-8">
           <div className="flex flex-wrap items-center gap-3">
-            <div className="relative min-w-[200px] max-w-md flex-1 basis-[min(100%,24rem)]">
+            <div
+              className={`relative min-w-[200px] max-w-md flex-1 basis-[min(100%,24rem)] ${
+                tab === "tasks" ? "" : "pointer-events-none invisible"
+              }`}
+              aria-hidden={tab !== "tasks"}
+            >
               <Search
                 className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-500"
                 aria-hidden
@@ -301,6 +312,7 @@ export function DashboardApp() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search task"
+                tabIndex={tab === "tasks" ? 0 : -1}
                 className="w-full rounded-xl border border-neutral-800 bg-neutral-950 py-2.5 pl-10 pr-4 text-sm text-white placeholder:text-neutral-600 focus:border-neutral-600 focus:outline-none"
               />
             </div>
@@ -338,42 +350,53 @@ export function DashboardApp() {
             <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
               Welcome back, {displayName}
             </h1>
-            <div
-              className={`flex shrink-0 items-center gap-1 rounded-xl border p-1 ${
-                tab === "tasks"
-                  ? "border-neutral-800"
-                  : "pointer-events-none invisible border-transparent"
-              }`}
-              aria-hidden={tab !== "tasks"}
-            >
+            {tab === "tasks" ? (
+              <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+                <div className="flex h-11 items-center gap-1 rounded-xl border border-neutral-800 p-1">
+                  <button
+                    type="button"
+                    onClick={() => setViewMode("grid")}
+                    className={`flex size-9 shrink-0 items-center justify-center rounded-lg ${viewMode === "grid" ? "bg-neutral-800 text-white" : "text-neutral-500 hover:text-white"}`}
+                    aria-label="Grid view"
+                  >
+                    <LayoutGrid className="size-5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setViewMode("list")}
+                    className={`flex size-9 shrink-0 items-center justify-center rounded-lg ${viewMode === "list" ? "bg-neutral-800 text-white" : "text-neutral-500 hover:text-white"}`}
+                    aria-label="List view"
+                  >
+                    <List className="size-5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setViewMode("board")}
+                    className={`flex size-9 shrink-0 items-center justify-center rounded-lg ${viewMode === "board" ? "bg-neutral-800 text-white" : "text-neutral-500 hover:text-white"}`}
+                    aria-label="Board view"
+                  >
+                    <Columns3 className="size-5" />
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setCreateOpen(true)}
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-white px-3 text-sm font-medium text-black transition hover:bg-neutral-200"
+                >
+                  <Plus className="size-4 shrink-0" aria-hidden />
+                  Add task
+                </button>
+              </div>
+            ) : tab === "routines" ? (
               <button
                 type="button"
-                onClick={() => setViewMode("grid")}
-                className={`rounded-lg p-2 ${viewMode === "grid" ? "bg-neutral-800 text-white" : "text-neutral-500 hover:text-white"}`}
-                aria-label="Grid view"
-                tabIndex={tab === "tasks" ? 0 : -1}
+                onClick={() => setRoutineCreateOpen(true)}
+                className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-white px-3 text-sm font-medium text-black transition hover:bg-neutral-200"
               >
-                <LayoutGrid className="size-5" />
+                <Plus className="size-4 shrink-0" aria-hidden />
+                Add routine
               </button>
-              <button
-                type="button"
-                onClick={() => setViewMode("list")}
-                className={`rounded-lg p-2 ${viewMode === "list" ? "bg-neutral-800 text-white" : "text-neutral-500 hover:text-white"}`}
-                aria-label="List view"
-                tabIndex={tab === "tasks" ? 0 : -1}
-              >
-                <List className="size-5" />
-              </button>
-              <button
-                type="button"
-                onClick={() => setViewMode("board")}
-                className={`rounded-lg p-2 ${viewMode === "board" ? "bg-neutral-800 text-white" : "text-neutral-500 hover:text-white"}`}
-                aria-label="Board view"
-                tabIndex={tab === "tasks" ? 0 : -1}
-              >
-                <Columns3 className="size-5" />
-              </button>
-            </div>
+            ) : null}
           </div>
         </header>
 
@@ -391,12 +414,16 @@ export function DashboardApp() {
                 (<code className="rounded bg-black/30 px-1">user_id</code>), then{" "}
                 <code className="rounded bg-black/30 px-1">supabase/m3_categories.sql</code>{" "}
                 (categories + <code className="rounded bg-black/30 px-1">category_id</code> on
-                tasks).
+                tasks), then{" "}
+                <code className="rounded bg-black/30 px-1">supabase/m4_recurring_routines.sql</code>{" "}
+                (routines + completions).
               </p>
             </div>
           ) : null}
 
-          {tab === "tracker" ? (
+          {tab === "routines" ? (
+            <RoutinesPanel refreshTrigger={routinesRefresh} />
+          ) : tab === "tracker" ? (
             <div className="flex flex-1 flex-col items-center justify-center rounded-2xl border border-dashed border-neutral-800 bg-neutral-950/50 px-6 py-20 text-center">
               <BarChart2 className="mb-4 size-12 text-neutral-600" />
               <p className="text-lg font-medium text-neutral-300">Tracker</p>
@@ -469,6 +496,11 @@ export function DashboardApp() {
           void loadCategories();
         }}
         categories={categories}
+      />
+      <CreateRoutineDialog
+        open={routineCreateOpen}
+        onClose={() => setRoutineCreateOpen(false)}
+        onCreated={() => setRoutinesRefresh((n) => n + 1)}
       />
       <EditTaskDialog
         task={taskToEdit}
