@@ -26,6 +26,7 @@ import { sortTasks } from "@/lib/tasks/sort";
 import { SelectField } from "@/components/ui/select-field";
 
 import { CategoriesManager } from "./categories-manager";
+import { CreateCategoryDialog } from "./create-category-dialog";
 import { CreateRoutineDialog } from "./create-routine-dialog";
 import { CreateTaskDialog } from "./create-task-dialog";
 import { DeleteTaskDialog } from "./delete-task-dialog";
@@ -48,6 +49,8 @@ export function DashboardApp() {
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
   const [routineCreateOpen, setRoutineCreateOpen] = useState(false);
+  const [categoryCreateOpen, setCategoryCreateOpen] = useState(false);
+  const [categoriesRefresh, setCategoriesRefresh] = useState(0);
   const [routinesRefresh, setRoutinesRefresh] = useState(0);
   const [taskToDelete, setTaskToDelete] = useState<TaskRow | null>(null);
   const [taskToEdit, setTaskToEdit] = useState<TaskRow | null>(null);
@@ -265,21 +268,21 @@ export function DashboardApp() {
           </button>
           <button
             type="button"
-            onClick={() => setTab("tracker")}
-            className={`${navBtn} ${tab === "tracker" ? navBtnActive : ""}`}
-            aria-label="Tracker"
-            aria-current={tab === "tracker" ? "page" : undefined}
-          >
-            <BarChart2 className="size-5" />
-          </button>
-          <button
-            type="button"
             onClick={() => setTab("categories")}
             className={`${navBtn} ${tab === "categories" ? navBtnActive : ""}`}
             aria-label="Categories"
             aria-current={tab === "categories" ? "page" : undefined}
           >
             <Tags className="size-5" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab("tracker")}
+            className={`${navBtn} ${tab === "tracker" ? navBtnActive : ""}`}
+            aria-label="Tracker"
+            aria-current={tab === "tracker" ? "page" : undefined}
+          >
+            <BarChart2 className="size-5" />
           </button>
         </nav>
         <button
@@ -396,6 +399,15 @@ export function DashboardApp() {
                 <Plus className="size-4 shrink-0" aria-hidden />
                 Add routine
               </button>
+            ) : tab === "categories" ? (
+              <button
+                type="button"
+                onClick={() => setCategoryCreateOpen(true)}
+                className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-white px-3 text-sm font-medium text-black transition hover:bg-neutral-200"
+              >
+                <Plus className="size-4 shrink-0" aria-hidden />
+                Add category
+              </button>
             ) : null}
           </div>
         </header>
@@ -433,6 +445,7 @@ export function DashboardApp() {
             </div>
           ) : tab === "categories" ? (
             <CategoriesManager
+              refreshTrigger={categoriesRefresh}
               onCategoriesChanged={() => {
                 void loadCategories();
                 void loadTasks();
@@ -501,6 +514,15 @@ export function DashboardApp() {
         open={routineCreateOpen}
         onClose={() => setRoutineCreateOpen(false)}
         onCreated={() => setRoutinesRefresh((n) => n + 1)}
+      />
+      <CreateCategoryDialog
+        open={categoryCreateOpen}
+        onClose={() => setCategoryCreateOpen(false)}
+        onCreated={() => {
+          void loadCategories();
+          void loadTasks();
+          setCategoriesRefresh((n) => n + 1);
+        }}
       />
       <EditTaskDialog
         task={taskToEdit}
